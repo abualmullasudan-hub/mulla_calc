@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:math' as math;
 import '../providers/app_state.dart';
 import '../utils/format.dart';
 import '../widgets/calc_keypad.dart';
+import '../widgets/live_ticker.dart';
 import 'new_transaction_screen.dart';
 import 'customers_screen.dart';
 import 'transactions_screen.dart';
 import 'currencies_screen.dart';
 import 'reports_screen.dart';
 import 'settings_screen.dart';
+import 'rates_editor_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,11 +27,14 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final app = Provider.of<AppState>(context);
-    double result = 0;
+    double converted = 0;
     try {
-      final val = double.parse(_amount);
-      final c = app.currencies[_from];
-      if (c != null) result = val * c.buyRate;
+      final val = _safeEval(_amount);
+      final cFrom = app.currencies[_from];
+      final cTo = app.currencies[_to];
+      if (cFrom != null && cTo != null) {
+        converted = val * cFrom.buyRate / cTo.buyRate;
+      }
     } catch (_) {}
 
     return Scaffold(
@@ -36,6 +42,12 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Mulla Exchange'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.tune),
+            tooltip: 'محرر الأسعار',
+            onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const RatesEditorScreen())).then((_) => setState((){})),
+          ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () => Navigator.push(context,
@@ -49,9 +61,11 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.all(6),
           child: Column(
             children: [
+              const LiveTicker(),
+              const SizedBox(height: 4),
               _buildStatsRow(app),
-              const SizedBox(height: 8),
-              Expanded(child: _buildQuickCalc(app, result)),
+              const SizedBox(height: 4),
+              Expanded(child: _buildQuickCalc(app, converted)),
             ],
           ),
         ),
@@ -86,7 +100,9 @@ class _HomeScreenState extends State<HomeScreen> {
             () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TransactionsScreen()))),
           _drawerItem(context, Icons.people, 'العملاء',
             () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomersScreen()))),
-          _drawerItem(context, Icons.attach_money, 'العملات والأسعار',
+          _drawerItem(context, Icons.tune, 'محرر الأسعار والمعادلات',
+            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RatesEditorScreen())).then((_) => setState((){}))),
+          _drawerItem(context, Icons.attach_money, 'العملات',
             () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CurrenciesScreen())).then((_) => setState((){}))),
           _drawerItem(context, Icons.bar_chart, 'التقارير',
             () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportsScreen()))),
@@ -111,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildStatsRow(AppState app) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: const Color(0xFFFDFBF7),
         borderRadius: BorderRadius.circular(10),
@@ -123,19 +139,19 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('ملخص اليوم', style: TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0B4D2C))),
+                fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0B4D2C))),
               Text(DateTime.now().toString().substring(0, 10),
-                style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                style: const TextStyle(fontSize: 10, color: Colors.grey)),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Row(
             children: [
-              _statCard('مشتريات', formatNumber(app.todayBuySDG), 'SDG', const Color(0xFF0B4D2C)),
-              const SizedBox(width: 6),
-              _statCard('مبيعات', formatNumber(app.todaySellSDG), 'SDG', const Color(0xFFC0392B)),
-              const SizedBox(width: 6),
-              _statCard('ربح', formatNumber(app.todayProfit), 'SDG', const Color(0xFF27AE60)),
+              _statCard('مشتريات', formatNumber(app.todayBuySDG), const Color(0xFF0B4D2C)),
+              const SizedBox(width: 4),
+              _statCard('مبيعات', formatNumber(app.todaySellSDG), const Color(0xFFC0392B)),
+              const SizedBox(width: 4),
+              _statCard('ربح', formatNumber(app.todayProfit), const Color(0xFF27AE60)),
             ],
           ),
         ],
@@ -143,10 +159,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _statCard(String title, String value, String unit, Color color) {
+  Widget _statCard(String title, String value, Color color) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 3),
         decoration: BoxDecoration(
           color: color.withOpacity(0.08),
           borderRadius: BorderRadius.circular(6),
@@ -154,17 +170,16 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Column(
           children: [
-            Text(title, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
-            Text(unit, style: TextStyle(fontSize: 9, color: color)),
+            Text(title, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 2),
+            Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildQuickCalc(AppState app, double result) {
+  Widget _buildQuickCalc(AppState app, double converted) {
     return Column(
       children: [
         Row(children: [
@@ -174,23 +189,22 @@ class _HomeScreenState extends State<HomeScreen> {
         ]),
         const SizedBox(height: 4),
         Container(
+          width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: const Color(0xFFE5DAC2),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: const Color(0xFFC5A059), width: 2),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('الكمية:', style: TextStyle(fontWeight: FontWeight.bold)),
-              Text(_amount, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
-            ],
+          child: Text(
+            _amount,
+            textAlign: TextAlign.right,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0B4D2C)),
           ),
         ),
         const SizedBox(height: 4),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: const Color(0xFFFDFBF7),
             borderRadius: BorderRadius.circular(8),
@@ -199,13 +213,13 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('الناتج:', style: TextStyle(fontWeight: FontWeight.bold)),
-              Text(formatNumber(result),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Color(0xFF0B4D2C))),
+              const Text('الناتج:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text(formatNumber(converted),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0B4D2C))),
             ],
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         Expanded(child: CalcKeypad(onKeyTap: _handleKey)),
       ],
     );
@@ -218,23 +232,24 @@ class _HomeScreenState extends State<HomeScreen> {
       value = list.first.code;
     }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: const Color(0xFFFDFBF7),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFFC5A059), width: 2),
       ),
       child: Row(children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        const SizedBox(width: 4),
         Expanded(
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: value,
               isExpanded: true,
+              isDense: true,
               items: list.map((e) => DropdownMenuItem(
                 value: e.code,
-                child: Text('${e.flag} ${e.code}', style: const TextStyle(fontSize: 13)),
+                child: Text('${e.flag} ${e.code}', style: const TextStyle(fontSize: 12)),
               )).toList(),
               onChanged: (v) { if (v != null) onChange(v); },
             ),
@@ -244,6 +259,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ================= الحاسبة الكاملة =================
   void _handleKey(String k) {
     setState(() {
       if (k == 'C') {
@@ -252,47 +268,116 @@ class _HomeScreenState extends State<HomeScreen> {
         _amount = _amount.length > 1 ? _amount.substring(0, _amount.length - 1) : '0';
       } else if (k == '=') {
         try {
-          final v = _evaluate(_amount);
-          _amount = v.toStringAsFixed(0);
-        } catch (_) {}
+          _amount = _formatResult(_safeEval(_amount));
+        } catch (_) {
+          _amount = 'خطأ';
+        }
       } else if (k == '+/-') {
-        if (_amount.startsWith('-')) {
-          _amount = _amount.substring(1);
+        final idx = _lastOpIndex();
+        if (idx == -1) {
+          _amount = _amount.startsWith('-') ? _amount.substring(1) : '-$_amount';
         } else {
-          _amount = '-$_amount';
+          final prefix = _amount.substring(0, idx + 1);
+          final last = _amount.substring(idx + 1);
+          _amount = last.startsWith('-') ? prefix + last.substring(1) : prefix + '-' + last;
         }
       } else if (k == '%') {
-        try { _amount = (double.parse(_amount) / 100).toString(); } catch (_) {}
+        try { _amount = _formatResult(_safeEval(_amount) / 100); } catch (_) {}
+      } else if (k == '√') {
+        try {
+          final v = _safeEval(_amount);
+          _amount = v >= 0 ? _formatResult(math.sqrt(v)) : 'خطأ';
+        } catch (_) {}
+      } else if (k == '1/x') {
+        try {
+          final v = _safeEval(_amount);
+          _amount = v != 0 ? _formatResult(1 / v) : 'خطأ';
+        } catch (_) {}
+      } else if (['+', '-', '×', '÷'].contains(k)) {
+        if (_amount == '0' && k == '-') {
+          _amount = '-';
+        } else if (['+', '-', '×', '÷'].contains(_amount[_amount.length - 1])) {
+          _amount = _amount.substring(0, _amount.length - 1) + k;
+        } else {
+          _amount += k;
+        }
+      } else if (k == '.') {
+        final idx = _lastOpIndex();
+        final lastNum = idx == -1 ? _amount : _amount.substring(idx + 1);
+        if (!lastNum.contains('.')) _amount += '.';
       } else {
-        _amount = (_amount == '0' && k != '.') ? k : _amount + k;
+        if (_amount == '0') _amount = k;
+        else _amount += k;
       }
     });
   }
 
-  double _evaluate(String s) {
-    s = s.replaceAll('×', '*').replaceAll('÷', '/');
-    double result = 0;
-    String num = '';
-    String op = '+';
-    for (int i = 0; i < s.length; i++) {
-      final c = s[i];
-      if ('0123456789.'.contains(c)) {
-        num += c;
-      } else {
-        final n = double.tryParse(num) ?? 0;
-        if (op == '+') result += n;
-        else if (op == '-') result -= n;
-        else if (op == '*') result *= n;
-        else if (op == '/') result = n != 0 ? result / n : result;
-        op = c;
-        num = '';
+  int _lastOpIndex() {
+    for (int i = _amount.length - 1; i >= 0; i--) {
+      if (['+', '-', '×', '÷'].contains(_amount[i])) {
+        if (_amount[i] == '-' && (i == 0 || ['+', '-', '×', '÷'].contains(_amount[i - 1]))) continue;
+        return i;
       }
     }
-    final n = double.tryParse(num) ?? 0;
-    if (op == '+') result += n;
-    else if (op == '-') result -= n;
-    else if (op == '*') result *= n;
-    else if (op == '/') result = n != 0 ? result / n : result;
-    return result;
+    return -1;
+  }
+
+  String _formatResult(double v) {
+    if (v.isNaN || v.isInfinite) return 'خطأ';
+    if (v == v.roundToDouble() && v.abs() < 1e15) return v.toInt().toString();
+    return v.toStringAsFixed(2);
+  }
+
+  double _safeEval(String e) {
+    try {
+      return _parse(e.replaceAll('×', '*').replaceAll('÷', '/'));
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  double _parse(String e) {
+    e = e.trim();
+    if (e.isEmpty) return 0;
+    while (e.startsWith('(') && e.endsWith(')')) {
+      int d = 0;
+      bool ok = true;
+      for (int i = 0; i < e.length; i++) {
+        if (e[i] == '(') d++;
+        if (e[i] == ')') {
+          d--;
+          if (d == 0 && i < e.length - 1) { ok = false; break; }
+        }
+      }
+      if (ok) e = e.substring(1, e.length - 1).trim();
+      else break;
+    }
+    int d = 0;
+    for (int i = e.length - 1; i >= 0; i--) {
+      final c = e[i];
+      if (c == ')') d++;
+      if (c == '(') d--;
+      if (d == 0) {
+        if (c == '+') return _parse(e.substring(0, i)) + _parse(e.substring(i + 1));
+        if (c == '-' && i > 0 && !'+*-/('.contains(e[i - 1])) {
+          return _parse(e.substring(0, i)) - _parse(e.substring(i + 1));
+        }
+      }
+    }
+    d = 0;
+    for (int i = e.length - 1; i >= 0; i--) {
+      final c = e[i];
+      if (c == ')') d++;
+      if (c == '(') d--;
+      if (d == 0) {
+        if (c == '*') return _parse(e.substring(0, i)) * _parse(e.substring(i + 1));
+        if (c == '/') {
+          final div = _parse(e.substring(i + 1));
+          if (div == 0) throw Exception('div0');
+          return _parse(e.substring(0, i)) / div;
+        }
+      }
+    }
+    return double.tryParse(e) ?? 0;
   }
 }
