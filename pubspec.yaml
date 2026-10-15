@@ -1,5 +1,5 @@
 name: mulla_calc
-description: نظام إدارة صرافة متكامل
+description: Mulla Calc
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -13,10 +13,8 @@ dependencies:
   provider: ^6.0.5
   shared_preferences: ^2.2.1
   http: ^1.1.0
-  intl: ^0.18.1
   pdf: ^3.10.7
   printing: ^5.11.1
-  uuid: ^4.2.1
 
 dev_dependencies:
   flutter_test:
