@@ -1,280 +1,197 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
-import 'package:uuid/uuid.dart';
 import 'dart:convert';
-import '../models/currency.dart';
-import '../models/customer.dart';
-import '../models/transaction.dart';
-import '../models/settings.dart';
+import '../utils/format.dart';
 
 class AppState extends ChangeNotifier {
-  final _uuid = const Uuid();
-  Map<String, Currency> currencies = {};
-  List<Customer> customers = [];
-  List<Transaction> transactions = [];
-  AppSettings settings = AppSettings();
-  String baseCurrencyCode = 'AED';
-  bool isLoaded = false;
-  bool isFetchingRates = false;
-  String lastFetchTime = '';
-
-  double baseRateInSDG = 2100;
-  Map<String, double> marketRatesToUSD = {
-    'AED': 3.67, 'SAR': 3.75, 'QAR': 3.64, 'EUR': 0.92, 'GBP': 0.78,
-    'TRY': 32.5, 'EGP': 48.5, 'BHD': 0.38, 'KWD': 0.31, 'OMR': 0.38,
-    'JOD': 0.71, 'CAD': 1.35, 'AUD': 1.50, 'CHF': 0.88, 'CNY': 7.2,
+  Map<String, double> ratesToSDG = {
+    'SDG': 1,
+    'AED': 2100,
+    'USD': 2100 * 3.67,
+    'SAR': 2100 * (3.67 / 3.75),
+    'QAR': 2100 * (3.67 / 3.64),
+    'EUR': 2100 * 3.67 * 1.08,
+    'GBP': 2100 * 3.67 * 1.28,
+    'TRY': 2100 * (3.67 / 32.5),
+    'LYD': 2100 * (3.67 / 4.85),
+    'TND': 2100 * (3.67 / 3.10),
+    'DZD': 2100 * (3.67 / 134.5),
+    'MAD': 2100 * (3.67 / 10.1),
+    'RUB': 2100 * (3.67 / 92.0),
+    'FRF': 2100 * 3.67 * 0.15,
+    'DEM': 2100 * 3.67 * 0.55,
+    'CNY': 2100 * (3.67 / 7.2),
+    'XAU': 2100 * 3.67 * 2350,
+    'XAG': 2100 * 3.67 * 28,
+    'OIL': 2100 * (3.67 / 75),
   };
 
+  Map<String, bool> activeInRatios = {
+    'SDG': true, 'AED': true, 'USD': true, 'SAR': true, 'QAR': true,
+    'EUR': false, 'GBP': false, 'TRY': false, 'LYD': false, 'TND': false,
+    'DZD': false, 'MAD': false, 'RUB': false, 'FRF': false, 'DEM': false,
+    'CNY': false, 'XAU': false, 'XAG': false, 'OIL': false,
+  };
+
+  Map<String, double> liveMarketRatesUSD = Map.from(defaultMarketRatesUSD);
+
+  String startupBaseCurrency = 'AED';
+  String lastUpdateLabel = 'آخر تحديث: متصل بالإنترنت';
+  bool isLoading = false;
+  bool isLoaded = false;
+
   AppState() {
-    _initDefaults();
-    _loadAll();
+    _loadPrefs();
   }
 
-  void _initDefaults() {
-    currencies = {
-      'SDG': Currency(code: 'SDG', name: 'جنيه سوداني', flag: '🇸🇩', buyRate: 1, sellRate: 1, active: true),
-      'AED': Currency(code: 'AED', name: 'درهم إماراتي', flag: '🇦🇪', buyRate: 2100, sellRate: 2121, active: true),
-      'USD': Currency(code: 'USD', name: 'دولار أمريكي', flag: '🇺🇸', buyRate: 7707, sellRate: 7784, active: true),
-      'SAR': Currency(code: 'SAR', name: 'ريال سعودي', flag: '🇸🇦', buyRate: 2055, sellRate: 2076, active: true),
-      'QAR': Currency(code: 'QAR', name: 'ريال قطري', flag: '🇶🇦', buyRate: 2117, sellRate: 2138, active: true),
-      'EUR': Currency(code: 'EUR', name: 'يورو', flag: '🇪🇺', buyRate: 8377, sellRate: 8461, active: true),
-      'GBP': Currency(code: 'GBP', name: 'جنيه إسترليني', flag: '🇬🇧', buyRate: 9881, sellRate: 9980, active: false),
-      'TRY': Currency(code: 'TRY', name: 'ليرة تركي', flag: '🇹🇷', buyRate: 237, sellRate: 240, active: false),
-      'EGP': Currency(code: 'EGP', name: 'جنيه مصري', flag: '🇪🇬', buyRate: 159, sellRate: 161, active: false),
-      'BHD': Currency(code: 'BHD', name: 'دينار بحريني', flag: '🇧🇭', buyRate: 20282, sellRate: 20485, active: false),
-      'KWD': Currency(code: 'KWD', name: 'دينار كويتي', flag: '🇰🇼', buyRate: 24861, sellRate: 25110, active: false),
-      'OMR': Currency(code: 'OMR', name: 'ريال عماني', flag: '🇴🇲', buyRate: 20282, sellRate: 20485, active: false),
-      'JOD': Currency(code: 'JOD', name: 'دينار أردني', flag: '🇯🇴', buyRate: 10855, sellRate: 10963, active: false),
-      'CAD': Currency(code: 'CAD', name: 'دولار كندي', flag: '🇨🇦', buyRate: 5709, sellRate: 5766, active: false),
-      'AUD': Currency(code: 'AUD', name: 'دولار أسترالي', flag: '🇦🇺', buyRate: 5138, sellRate: 5189, active: false),
-      'CHF': Currency(code: 'CHF', name: 'فرنك سويسري', flag: '🇨🇭', buyRate: 8758, sellRate: 8845, active: false),
-      'CNY': Currency(code: 'CNY', name: 'يوان صيني', flag: '🇨🇳', buyRate: 1070, sellRate: 1081, active: false),
-    };
-  }
-
-  double get usdInSDG {
-    final m = marketRatesToUSD[baseCurrencyCode] ?? 1;
-    return baseRateInSDG * m;
-  }
-
-  double getRateInSDG(String code) {
-    if (code == 'SDG') return 1;
-    final m = marketRatesToUSD[code];
-    if (m == null || m <= 0) return currencies[code]?.buyRate ?? 0;
-    return usdInSDG / m;
-  }
-
-  void refreshAllRates() {
-    for (var c in currencies.values) {
-      if (c.code == 'SDG') continue;
-      final r = getRateInSDG(c.code);
-      if (r > 0) {
-        c.buyRate = r;
-        c.sellRate = r * 1.01;
-      }
-    }
-    saveAll();
-  }
-
-  Future<void> _loadAll() async {
+  Future<void> _loadPrefs() async {
     final p = await SharedPreferences.getInstance();
-    final currStr = p.getString('currencies_v2');
-    if (currStr != null) {
-      try {
-        final map = jsonDecode(currStr) as Map<String, dynamic>;
-        currencies = map.map((k, v) => MapEntry(k, Currency.fromJson(v)));
-      } catch (_) {}
-    }
-    baseCurrencyCode = p.getString('base') ?? 'AED';
-    baseRateInSDG = p.getDouble('baseRateInSDG') ?? 2100;
-    final mrStr = p.getString('marketRates');
-    if (mrStr != null) {
-      try {
-        final m = jsonDecode(mrStr) as Map<String, dynamic>;
-        marketRatesToUSD = m.map((k, v) => MapEntry(k, (v as num).toDouble()));
-      } catch (_) {}
-    }
-    final custStr = p.getString('customers_v2');
-    if (custStr != null) {
-      try {
-        final list = jsonDecode(custStr) as List;
-        customers = list.map((e) => Customer.fromJson(e)).toList();
-      } catch (_) {}
-    }
-    final txStr = p.getString('transactions_v2');
-    if (txStr != null) {
-      try {
-        final list = jsonDecode(txStr) as List;
-        transactions = list.map((e) => Transaction.fromJson(e)).toList();
-      } catch (_) {}
-    }
-    final settStr = p.getString('settings_v2');
-    if (settStr != null) {
-      try {
-        settings = AppSettings.fromJson(jsonDecode(settStr));
-      } catch (_) {}
+    startupBaseCurrency = p.getString('startupBaseCurrency') ?? 'AED';
+    for (var k in ratesToSDG.keys) {
+      final v = p.getDouble('rate_$k');
+      if (v != null) ratesToSDG[k] = v;
+      final a = p.getBool('active_$k');
+      if (a != null) activeInRatios[k] = a;
+      final m = p.getDouble('market_$k');
+      if (m != null) liveMarketRatesUSD[k] = m;
     }
     isLoaded = true;
     notifyListeners();
-
-    fetchLiveRatesFromApi();
   }
 
-  Future<void> saveAll() async {
+  Future<void> _savePrefs() async {
     final p = await SharedPreferences.getInstance();
-    final currJson = currencies.map((k, v) => MapEntry(k, v.toJson()));
-    await p.setString('currencies_v2', jsonEncode(currJson));
-    await p.setString('base', baseCurrencyCode);
-    await p.setDouble('baseRateInSDG', baseRateInSDG);
-    await p.setString('marketRates', jsonEncode(marketRatesToUSD));
-    await p.setString('customers_v2', jsonEncode(customers.map((e) => e.toJson()).toList()));
-    await p.setString('transactions_v2', jsonEncode(transactions.map((e) => e.toJson()).toList()));
-    await p.setString('settings_v2', jsonEncode(settings.toJson()));
+    await p.setString('startupBaseCurrency', startupBaseCurrency);
+    for (var k in ratesToSDG.keys) {
+      await p.setDouble('rate_$k', ratesToSDG[k] ?? 0);
+      await p.setBool('active_$k', activeInRatios[k] ?? false);
+      if (liveMarketRatesUSD[k] != null) {
+        await p.setDouble('market_$k', liveMarketRatesUSD[k]!);
+      }
+    }
     notifyListeners();
   }
 
-  Future<void> fetchLiveRatesFromApi() async {
-    if (isFetchingRates) return;
-    isFetchingRates = true;
+  double convert(double amount, String from, String to) {
+    final rF = ratesToSDG[from] ?? 1;
+    final rT = ratesToSDG[to] ?? 1;
+    return (amount * rF) / rT;
+  }
+
+  Future<void> saveStartupRate(String baseCurr, double val) async {
+    startupBaseCurrency = baseCurr;
+    ratesToSDG[baseCurr] = val;
+
+    final mRate = liveMarketRatesUSD[baseCurr] ?? 1;
+    final usdSDG = val * mRate;
+    ratesToSDG['USD'] = usdSDG;
+
+    for (var code in ratesToSDG.keys) {
+      if (code == 'SDG' || code == 'USD' || code == baseCurr) continue;
+      final m = liveMarketRatesUSD[code];
+      if (m != null && m > 0) {
+        if (code == 'XAU') {
+          ratesToSDG[code] = usdSDG * (liveMarketRatesUSD['XAU'] ?? 2350);
+        } else if (code == 'XAG') {
+          ratesToSDG[code] = usdSDG * (liveMarketRatesUSD['XAG'] ?? 28);
+        } else if (code == 'OIL') {
+          ratesToSDG[code] = usdSDG * (liveMarketRatesUSD['OIL'] ?? 75);
+        } else {
+          ratesToSDG[code] = usdSDG / m;
+        }
+      }
+    }
+    if (baseCurr != 'AED') {
+      ratesToSDG['AED'] = usdSDG / (liveMarketRatesUSD['AED'] ?? 3.67);
+    }
+    if (baseCurr != 'SAR') {
+      ratesToSDG['SAR'] = usdSDG / (liveMarketRatesUSD['SAR'] ?? 3.75);
+    }
+    await _savePrefs();
+  }
+
+  Future<void> fetchLiveMarketRates() async {
+    isLoading = true;
     notifyListeners();
     try {
-      final resp = await http.get(
-        Uri.parse('https://open.er-api.com/v6/latest/USD'),
-      ).timeout(const Duration(seconds: 10));
-
+      final resp = await http
+          .get(Uri.parse('https://open.er-api.com/v6/latest/USD'))
+          .timeout(const Duration(seconds: 15));
       if (resp.statusCode == 200) {
         final data = json.decode(resp.body);
         if (data['rates'] != null) {
-          final live = data['rates'] as Map<String, dynamic>;
-          for (var code in marketRatesToUSD.keys) {
-            if (live[code] != null) {
-              marketRatesToUSD[code] = (live[code] as num).toDouble();
+          final rates = data['rates'] as Map;
+          for (var code in liveMarketRatesUSD.keys) {
+            if (rates[code] != null &&
+                code != 'XAU' && code != 'XAG' && code != 'OIL') {
+              liveMarketRatesUSD[code] = (rates[code] as num).toDouble();
             }
           }
-          refreshAllRates();
-          lastFetchTime = DateTime.now().toString().substring(11, 16);
+          final baseSDG = ratesToSDG[startupBaseCurrency] ?? ratesToSDG['AED']!;
+          final baseM = liveMarketRatesUSD[startupBaseCurrency] ?? 1;
+          final usdSDG = baseSDG * baseM;
+          ratesToSDG['USD'] = usdSDG;
+
+          for (var code in ratesToSDG.keys) {
+            if (code == 'SDG' || code == 'USD' || code == startupBaseCurrency) continue;
+            final m = liveMarketRatesUSD[code];
+            if (m != null && m > 0) {
+              if (code == 'XAU') {
+                ratesToSDG[code] = usdSDG * (liveMarketRatesUSD['XAU'] ?? 2350);
+              } else if (code == 'XAG') {
+                ratesToSDG[code] = usdSDG * (liveMarketRatesUSD['XAG'] ?? 28);
+              } else if (code == 'OIL') {
+                ratesToSDG[code] = usdSDG * (liveMarketRatesUSD['OIL'] ?? 75);
+              } else {
+                ratesToSDG[code] = usdSDG / m;
+              }
+            }
+          }
+          if (startupBaseCurrency != 'AED') {
+            ratesToSDG['AED'] = usdSDG / (liveMarketRatesUSD['AED'] ?? 3.67);
+          }
+          if (startupBaseCurrency != 'SAR') {
+            ratesToSDG['SAR'] = usdSDG / (liveMarketRatesUSD['SAR'] ?? 3.75);
+          }
+          final now = DateTime.now();
+          lastUpdateLabel =
+              'آخر تحديث: ${now.hour}:${now.minute.toString().padLeft(2, '0')}';
+          await _savePrefs();
         }
       }
-    } catch (_) {}
-    isFetchingRates = false;
+    } catch (_) {
+      lastUpdateLabel = 'تعذر الاتصال بالإنترنت';
+    }
+    isLoading = false;
     notifyListeners();
   }
 
-  void setBaseCurrency(String code) {
-    baseCurrencyCode = code;
-    refreshAllRates();
+  List<String> get activeCurrencies =>
+      activeInRatios.entries.where((e) => e.value).map((e) => e.key).toList();
+
+  void toggleActive(String code) {
+    activeInRatios[code] = !(activeInRatios[code] ?? false);
+    _savePrefs();
   }
 
-  void updateBaseRate(double rate) {
-    baseRateInSDG = rate;
-    refreshAllRates();
+  void setStartupBase(String code) {
+    startupBaseCurrency = code;
+    _savePrefs();
   }
 
-  void updateMarketRate(String code, double rate) {
-    marketRatesToUSD[code] = rate;
-    refreshAllRates();
-  }
-
-  List<Currency> get activeCurrencies =>
-      currencies.values.where((c) => c.active).toList();
-
-  void toggleCurrencyActive(String code) {
-    currencies[code]!.active = !currencies[code]!.active;
-    saveAll();
-  }
-
-  void updateCurrency(String code, {double? buyRate, double? sellRate, String? name}) {
-    final c = currencies[code]!;
-    if (buyRate != null) c.buyRate = buyRate;
-    if (sellRate != null) c.sellRate = sellRate;
-    if (name != null) c.name = name;
-    saveAll();
-  }
-
-  void addCustomer(String name, String phone, String note) {
-    customers.add(Customer(
-      id: _uuid.v4(), name: name, phone: phone, note: note,
-      createdAt: DateTime.now(),
-    ));
-    saveAll();
-  }
-
-  void deleteCustomer(String id) {
-    customers.removeWhere((e) => e.id == id);
-    saveAll();
-  }
-
-  Customer? getCustomer(String id) {
-    try {
-      return customers.firstWhere((e) => e.id == id);
-    } catch (_) {
-      return null;
+  Future<void> saveCustomRatios(Map<String, double> newValues) async {
+    for (var e in newValues.entries) {
+      ratesToSDG[e.key] = e.value;
     }
+    await _savePrefs();
   }
 
-  Future<Transaction> addTransaction({
-    required String type,
-    required String customerId,
-    required String currencyCode,
-    required double amount,
-    required double rate,
-    String note = '',
-  }) async {
-    final customer = getCustomer(customerId);
-    final invoiceNo = (transactions.length + 1).toString().padLeft(4, '0');
-    final totalSDG = amount * rate;
-
-    final t = Transaction(
-      id: _uuid.v4(),
-      invoiceNo: invoiceNo,
-      type: type,
-      customerId: customerId,
-      customerName: customer?.name ?? 'نقدي',
-      currencyCode: currencyCode,
-      amount: amount,
-      rate: rate,
-      totalSDG: totalSDG,
-      note: note,
-      date: DateTime.now(),
-    );
-    transactions.insert(0, t);
-
-    if (customer != null) {
-      if (type == 'buy') {
-        customer.balance -= totalSDG;
-      } else {
-        customer.balance += totalSDG;
-      }
-    }
-    await saveAll();
-    return t;
-  }
-
-  List<Transaction> get todayTransactions {
-    final now = DateTime.now();
-    return transactions.where((t) =>
-        t.date.year == now.year && t.date.month == now.month && t.date.day == now.day).toList();
-  }
-
-  double get todayBuySDG =>
-      todayTransactions.where((t) => t.isBuy).fold(0.0, (s, t) => s + t.totalSDG);
-
-  double get todaySellSDG =>
-      todayTransactions.where((t) => !t.isBuy).fold(0.0, (s, t) => s + t.totalSDG);
-
-  double get todayProfit {
-    double profit = 0;
-    for (var t in todayTransactions) {
-      final c = currencies[t.currencyCode];
-      if (c == null) continue;
-      profit += t.amount * (c.sellRate - c.buyRate);
-    }
-    return profit;
-  }
-
-  void updateSettings(AppSettings s) {
-    settings = s;
-    saveAll();
+  Future<void> addCurrency(String code, double marketRate) async {
+    liveMarketRatesUSD[code] = marketRate;
+    activeInRatios[code] = true;
+    final usdSDG = ratesToSDG['USD'] ?? (ratesToSDG['AED']! * 3.67);
+    ratesToSDG[code] = usdSDG / marketRate;
+    await _savePrefs();
   }
 }
