@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 import 'dart:convert';
 import '../models/currency.dart';
@@ -15,25 +16,14 @@ class AppState extends ChangeNotifier {
   AppSettings settings = AppSettings();
   String baseCurrencyCode = 'AED';
   bool isLoaded = false;
+  bool isFetchingRates = false;
+  String lastFetchTime = '';
 
-  // ⭐ NEW: محرر النسب
   double baseRateInSDG = 2100;
   Map<String, double> marketRatesToUSD = {
-    'AED': 3.67,
-    'SAR': 3.75,
-    'QAR': 3.64,
-    'EUR': 0.92,
-    'GBP': 0.78,
-    'TRY': 32.5,
-    'EGP': 48.5,
-    'BHD': 0.38,
-    'KWD': 0.31,
-    'OMR': 0.38,
-    'JOD': 0.71,
-    'CAD': 1.35,
-    'AUD': 1.50,
-    'CHF': 0.88,
-    'CNY': 7.2,
+    'AED': 3.67, 'SAR': 3.75, 'QAR': 3.64, 'EUR': 0.92, 'GBP': 0.78,
+    'TRY': 32.5, 'EGP': 48.5, 'BHD': 0.38, 'KWD': 0.31, 'OMR': 0.38,
+    'JOD': 0.71, 'CAD': 1.35, 'AUD': 1.50, 'CHF': 0.88, 'CNY': 7.2,
   };
 
   AppState() {
@@ -49,27 +39,25 @@ class AppState extends ChangeNotifier {
       'SAR': Currency(code: 'SAR', name: 'ريال سعودي', flag: '🇸🇦', buyRate: 2055, sellRate: 2076, active: true),
       'QAR': Currency(code: 'QAR', name: 'ريال قطري', flag: '🇶🇦', buyRate: 2117, sellRate: 2138, active: true),
       'EUR': Currency(code: 'EUR', name: 'يورو', flag: '🇪🇺', buyRate: 8377, sellRate: 8461, active: true),
-      'GBP': Currency(code: 'GBP', name: 'جنيه إسترليني', flag: '🇬🇧', buyRate: 9881, sellRate: 9980),
-      'TRY': Currency(code: 'TRY', name: 'ليرة تركي', flag: '🇹🇷', buyRate: 237),
-      'EGP': Currency(code: 'EGP', name: 'جنيه مصري', flag: '🇪🇬', buyRate: 159),
-      'BHD': Currency(code: 'BHD', name: 'دينار بحريني', flag: '🇧🇭', buyRate: 20282),
-      'KWD': Currency(code: 'KWD', name: 'دينار كويتي', flag: '🇰🇼', buyRate: 24861),
-      'OMR': Currency(code: 'OMR', name: 'ريال عماني', flag: '🇴🇲', buyRate: 20282),
-      'JOD': Currency(code: 'JOD', name: 'دينار أردني', flag: '🇯🇴', buyRate: 10855),
-      'CAD': Currency(code: 'CAD', name: 'دولار كندي', flag: '🇨🇦', buyRate: 5709),
-      'AUD': Currency(code: 'AUD', name: 'دولار أسترالي', flag: '🇦🇺', buyRate: 5138),
-      'CHF': Currency(code: 'CHF', name: 'فرنك سويسري', flag: '🇨🇭', buyRate: 8758),
-      'CNY': Currency(code: 'CNY', name: 'يوان صيني', flag: '🇨🇳', buyRate: 1070),
+      'GBP': Currency(code: 'GBP', name: 'جنيه إسترليني', flag: '🇬🇧', buyRate: 9881, sellRate: 9980, active: false),
+      'TRY': Currency(code: 'TRY', name: 'ليرة تركي', flag: '🇹🇷', buyRate: 237, sellRate: 240, active: false),
+      'EGP': Currency(code: 'EGP', name: 'جنيه مصري', flag: '🇪🇬', buyRate: 159, sellRate: 161, active: false),
+      'BHD': Currency(code: 'BHD', name: 'دينار بحريني', flag: '🇧🇭', buyRate: 20282, sellRate: 20485, active: false),
+      'KWD': Currency(code: 'KWD', name: 'دينار كويتي', flag: '🇰🇼', buyRate: 24861, sellRate: 25110, active: false),
+      'OMR': Currency(code: 'OMR', name: 'ريال عماني', flag: '🇴🇲', buyRate: 20282, sellRate: 20485, active: false),
+      'JOD': Currency(code: 'JOD', name: 'دينار أردني', flag: '🇯🇴', buyRate: 10855, sellRate: 10963, active: false),
+      'CAD': Currency(code: 'CAD', name: 'دولار كندي', flag: '🇨🇦', buyRate: 5709, sellRate: 5766, active: false),
+      'AUD': Currency(code: 'AUD', name: 'دولار أسترالي', flag: '🇦🇺', buyRate: 5138, sellRate: 5189, active: false),
+      'CHF': Currency(code: 'CHF', name: 'فرنك سويسري', flag: '🇨🇭', buyRate: 8758, sellRate: 8845, active: false),
+      'CNY': Currency(code: 'CNY', name: 'يوان صيني', flag: '🇨🇳', buyRate: 1070, sellRate: 1081, active: false),
     };
   }
 
-  // ⭐ حساب سعر الدولار بالجنيه السوداني
   double get usdInSDG {
     final m = marketRatesToUSD[baseCurrencyCode] ?? 1;
     return baseRateInSDG * m;
   }
 
-  // ⭐ حساب سعر أي عملة بالجنيه السوداني حسب المعادلة
   double getRateInSDG(String code) {
     if (code == 'SDG') return 1;
     final m = marketRatesToUSD[code];
@@ -77,7 +65,6 @@ class AppState extends ChangeNotifier {
     return usdInSDG / m;
   }
 
-  // ⭐ إعادة حساب كل الأسعار
   void refreshAllRates() {
     for (var c in currencies.values) {
       if (c.code == 'SDG') continue;
@@ -130,6 +117,8 @@ class AppState extends ChangeNotifier {
     }
     isLoaded = true;
     notifyListeners();
+
+    fetchLiveRatesFromApi();
   }
 
   Future<void> saveAll() async {
@@ -145,19 +134,43 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ⭐ تغيير العملة الأساسية
+  Future<void> fetchLiveRatesFromApi() async {
+    if (isFetchingRates) return;
+    isFetchingRates = true;
+    notifyListeners();
+    try {
+      final resp = await http.get(
+        Uri.parse('https://open.er-api.com/v6/latest/USD'),
+      ).timeout(const Duration(seconds: 10));
+
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body);
+        if (data['rates'] != null) {
+          final live = data['rates'] as Map<String, dynamic>;
+          for (var code in marketRatesToUSD.keys) {
+            if (live[code] != null) {
+              marketRatesToUSD[code] = (live[code] as num).toDouble();
+            }
+          }
+          refreshAllRates();
+          lastFetchTime = DateTime.now().toString().substring(11, 16);
+        }
+      }
+    } catch (_) {}
+    isFetchingRates = false;
+    notifyListeners();
+  }
+
   void setBaseCurrency(String code) {
     baseCurrencyCode = code;
     refreshAllRates();
   }
 
-  // ⭐ تحديث سعر العملة الأساسية
   void updateBaseRate(double rate) {
     baseRateInSDG = rate;
     refreshAllRates();
   }
 
-  // ⭐ تحديث سعر السوق
   void updateMarketRate(String code, double rate) {
     marketRatesToUSD[code] = rate;
     refreshAllRates();
@@ -181,10 +194,7 @@ class AppState extends ChangeNotifier {
 
   void addCustomer(String name, String phone, String note) {
     customers.add(Customer(
-      id: _uuid.v4(),
-      name: name,
-      phone: phone,
-      note: note,
+      id: _uuid.v4(), name: name, phone: phone, note: note,
       createdAt: DateTime.now(),
     ));
     saveAll();
