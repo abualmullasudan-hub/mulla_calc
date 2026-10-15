@@ -93,15 +93,13 @@ class _StartupRateScreenState extends State<StartupRateScreen> {
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                      onPressed: () async {
+                      onPressed: () {
                         final r = double.tryParse(_ctrl.text);
                         if (r != null && r > 0) {
                           app.setBaseCurrency(_base);
-                          await app.updateBaseRate(r);
-                          if (mounted) {
-                            Navigator.pushReplacement(context,
-                              MaterialPageRoute(builder: (_) => const HomeScreen()));
-                          }
+                          app.updateBaseRate(r);
+                          Navigator.pushReplacement(context,
+                            MaterialPageRoute(builder: (_) => const HomeScreen()));
                         }
                       },
                       child: const Text('الحفظ و الاعتماد',
