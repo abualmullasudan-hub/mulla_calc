@@ -18,7 +18,7 @@ class _StartupRateScreenState extends State<StartupRateScreen> {
     super.initState();
     final app = Provider.of<AppState>(context, listen: false);
     _base = app.baseCurrencyCode;
-    _ctrl.text = app.currencies[_base]?.rateToSDG.toStringAsFixed(0) ?? '';
+    _ctrl.text = app.currencies[_base]?.buyRate.toStringAsFixed(0) ?? '';
   }
 
   @override
@@ -40,7 +40,7 @@ class _StartupRateScreenState extends State<StartupRateScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Mulla Calc', style: TextStyle(
+                  const Text('Mulla Exchange', style: TextStyle(
                     fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFFC5A059))),
                   const SizedBox(height: 4),
                   const Text('تحديث سعر اليوم', style: TextStyle(
@@ -63,7 +63,7 @@ class _StartupRateScreenState extends State<StartupRateScreen> {
                       if (v != null) {
                         setState(() {
                           _base = v;
-                          _ctrl.text = app.currencies[v]?.rateToSDG.toStringAsFixed(0) ?? '';
+                          _ctrl.text = app.currencies[v]?.buyRate.toStringAsFixed(0) ?? '';
                         });
                       }
                     },
@@ -96,7 +96,7 @@ class _StartupRateScreenState extends State<StartupRateScreen> {
                       onPressed: () async {
                         final r = double.tryParse(_ctrl.text);
                         if (r != null && r > 0) {
-                          await app.saveBase(_base);
+                          app.setBaseCurrency(_base);
                           await app.updateBaseRate(r);
                           if (mounted) {
                             Navigator.pushReplacement(context,
@@ -108,6 +108,13 @@ class _StartupRateScreenState extends State<StartupRateScreen> {
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  const Divider(color: Color(0xFFC5A059)),
+                  const Text('Abu Almulla',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0B4D2C))),
+                  const Text('0922008009',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF0B4D2C)),
+                    textDirection: TextDirection.ltr),
                 ],
               ),
             ),
