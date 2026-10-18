@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_state.dart';
 import 'main_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -7,91 +9,58 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _scale;
-
+class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
-    _scale = Tween<double>(begin: 1.0, end: 1.05).animate(_ctrl);
-    Future.delayed(const Duration(milliseconds: 1800), () {
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const MainScreen()),
-        );
-      }
-    });
+    _boot();
   }
 
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
+  Future<void> _boot() async {
+    await context.read<AppState>().loadAll();
+    await Future.delayed(const Duration(milliseconds: 1500));
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const MainScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = context.watch<AppState>().theme;
     return Scaffold(
-      backgroundColor: const Color(0xFF0B4D2C),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ScaleTransition(
-              scale: _scale,
-              child: Container(
-                width: 130,
-                height: 130,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft, end: Alignment.bottomRight,
+            colors: [t.primaryDark, t.primaryDarker],
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 130, height: 130,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFDFBF7),
-                  border: Border.all(color: const Color(0xFFC5A059), width: 6),
+                  color: t.cream,
                   borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
+                  border: Border.all(color: t.gold, width: 6),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, 8)),
                   ],
                 ),
-                child: const Center(
-                  child: Text(
-                    'Mulla',
-                    style: TextStyle(
-                      color: Color(0xFF0B4D2C),
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                child: Center(
+                  child: Text('MC', style: TextStyle(color: t.primaryDark, fontSize: 42, fontWeight: FontWeight.bold)),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Mulla Calc',
-              style: TextStyle(
-                color: Color(0xFFFDFBF7),
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'الآلة الحاسبة المالية',
-              style: TextStyle(
-                color: Color(0xFFC5A059),
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              Text('Mulla Calc', style: TextStyle(color: t.cream, fontSize: 26, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text('الآلة الحاسبة المالية', style: TextStyle(color: t.gold, fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
         ),
       ),
     );
