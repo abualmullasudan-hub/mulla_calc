@@ -105,7 +105,7 @@ class _FactorScreenState extends State<FactorScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: isLoss ? t.danger.withValues(alpha: 0.2) : t.bgOuter,
+              color: isLoss ? t.danger.withOpacity(0.2) : t.bgOuter,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: isLoss ? t.danger : t.primaryDark, width: 2),
             ),
@@ -146,7 +146,7 @@ class _FactorScreenState extends State<FactorScreen> {
             child: Column(children: [
               Text('المقابل', style: TextStyle(fontSize: 12, color: t.textDark, fontWeight: FontWeight.bold)),
               Text(isLoss ? '⚠️ خسارة' : formatNum(result), textDirection: TextDirection.ltr, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: isLoss ? t.danger : t.textDark)),
-              if (!isLoss) Text(numberToWords(result, app.factorTo), style: TextStyle(fontSize: 12, color: t.textDark.withValues(alpha: 0.8))),
+              if (!isLoss) Text(numberToWords(result, app.factorTo), style: TextStyle(fontSize: 12, color: t.textDark.withOpacity(0.8))),
             ]),
           ),
           const SizedBox(height: 10),
