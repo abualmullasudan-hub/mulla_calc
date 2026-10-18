@@ -60,7 +60,7 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Text(kCurrencyFlags[c] ?? '', style: const TextStyle(fontSize: 24)),
                   Text(c, style: TextStyle(fontWeight: FontWeight.bold, color: t.textDark)),
-                  Text(kCurrencyLabels[c] ?? '', style: TextStyle(fontSize: 11, color: t.textDark.withValues(alpha: 0.7))),
+                  Text(kCurrencyLabels[c] ?? '', style: TextStyle(fontSize: 11, color: t.textDark.withOpacity(0.7))),
                 ]),
               ),
             );
@@ -81,11 +81,10 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
       padding: const EdgeInsets.all(10),
       child: Column(
         children: [
-          // شريط الأسعار الحي (مبسط)
           Container(
             padding: const EdgeInsets.all(8),
             margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(color: t.primaryDarker, borderRadius: BorderRadius.circular(8), border: Border.all(color: t.gold.withValues(alpha: 0.6))),
+            decoration: BoxDecoration(color: t.primaryDarker, borderRadius: BorderRadius.circular(8), border: Border.all(color: t.gold.withOpacity(0.6))),
             child: Text(
               app.activeCurrencies.where((c) => c != 'SDG').map((c) => '${kCurrencyFlags[c] ?? ''} $c: ${(app.rates.marketUSD[c] ?? 0).toStringAsFixed(2)}').join('  |  '),
               style: TextStyle(color: t.cream, fontSize: 11, fontWeight: FontWeight.bold),
@@ -119,7 +118,7 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
               const SizedBox(height: 4),
               Text('${formatNum(result)} ${kCurrencyFlags[_to] ?? ''} $_to', textDirection: TextDirection.ltr, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: t.textDark)),
               const SizedBox(height: 4),
-              Text(numberToWords(result, _to), style: TextStyle(fontSize: 12, color: t.textDark.withValues(alpha: 0.8))),
+              Text(numberToWords(result, _to), style: TextStyle(fontSize: 12, color: t.textDark.withOpacity(0.8))),
             ]),
           ),
           const SizedBox(height: 10),
@@ -171,7 +170,6 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
   }
 }
 
-// محلل بسيط للعمليات الحسابية داخل حقل العملة
 class _Parser {
   final String src;
   int pos = 0;
