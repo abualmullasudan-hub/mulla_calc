@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/currency.dart';
-import '../services/rates_service.dart';
+import '../services/rates_service.dart'; // <--- هذا هو السطر السحري الذي كان مفقوداً
 
 class AppState extends ChangeNotifier {
   AppTheme theme = kThemes.first;
