@@ -19,6 +19,10 @@ jobs:
         with:
           channel: 'stable'
           
+      # سطر جديد: إنشاء مجلدات ios و android الناقصة تلقائياً
+      - name: Create missing platform folders
+        run: flutter create .
+        
       - name: Install dependencies
         run: flutter pub get
         
