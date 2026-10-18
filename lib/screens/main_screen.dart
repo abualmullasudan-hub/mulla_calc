@@ -40,15 +40,12 @@ class _MainScreenState extends State<MainScreen> {
     final t = context.watch<AppState>().theme;
     final hidden = context.watch<AppState>().hiddenPages;
     
-    // تصفية الصفحات الظاهرة فقط
     final visibleIdx = <int>[];
     for (var i = 0; i < _items.length; i++) {
       if (!hidden.contains(_pageId(i))) visibleIdx.add(i);
     }
     
-    // حماية في حال تم إخفاء كل الصفحات
     if (visibleIdx.isEmpty) visibleIdx.add(5); 
-    // حماية في حال كانت الصفحة الحالية مخفية
     if (!visibleIdx.contains(_index)) _index = visibleIdx.first;
 
     return Directionality(
@@ -86,13 +83,13 @@ class _MainScreenState extends State<MainScreen> {
                       children: [
                         Icon(_items[i].$1,
                             size: 22,
-                            color: selected ? t.gold : t.primaryDark.withValues(alpha: 0.8)),
+                            color: selected ? t.gold : t.primaryDark.withOpacity(0.8)),
                         const SizedBox(height: 3),
                         Text(_items[i].$2,
                             style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: selected ? t.gold : t.primaryDark.withValues(alpha: 0.8))),
+                                color: selected ? t.gold : t.primaryDark.withOpacity(0.8))),
                       ],
                     ),
                   ),
