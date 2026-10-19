@@ -18,6 +18,7 @@ class _FactorScreenState extends State<FactorScreen> {
   void initState() {
     super.initState();
     final app = context.read<AppState>();
+    // سيتم جلب القيم الافتراضية من app_state (0، AED، SAR)
     app.factorFrom = app.defFactorFrom;
     app.factorTo = app.defFactorTo;
     app.factorAmount = app.defFactorAmount.toStringAsFixed(0);
