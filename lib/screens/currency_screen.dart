@@ -13,8 +13,8 @@ class CurrencyScreen extends StatefulWidget {
 
 class _CurrencyScreenState extends State<CurrencyScreen> {
   String _from = 'AED';
-  String _to = 'SDG';
-  String _amount = '100';
+  String _to = 'SAR'; // تم التغيير إلى ريال سعودي
+  String _amount = '0'; // تم التغيير إلى صفر
 
   void _append(String ch) {
     setState(() {
