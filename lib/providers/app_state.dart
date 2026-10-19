@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/currency.dart';
-import '../services/rates_service.dart'; // <--- هذا هو السطر السحري الذي كان مفقوداً
+import '../services/rates_service.dart';
 
 class AppState extends ChangeNotifier {
   AppTheme theme = kThemes.first;
@@ -24,15 +24,16 @@ class AppState extends ChangeNotifier {
   List<String> hiddenPages = [];
   List<Map<String, dynamic>> logs = [];
 
-  // حالة البدل
+  // حالة البدل (تم تحديث القيم الافتراضية هنا)
   String factorFrom = 'AED';
-  String factorTo = 'SDG';
-  String factorAmount = '1000';
+  String factorTo = 'SAR'; 
+  String factorAmount = '0';
   String factorRate = '1.06';
   bool factorLocked = true;
+  
   String defFactorFrom = 'AED';
-  String defFactorTo = 'SDG';
-  double defFactorAmount = 1000;
+  String defFactorTo = 'SAR';
+  double defFactorAmount = 0;
   double defRefFactor = 1.00;
   double defLossLimit = 0.01;
   Map<String, double> savedFactors = {};
@@ -42,65 +43,73 @@ class AppState extends ChangeNotifier {
   Map<String, String> basketValues = {};
 
   Future<void> loadAll() async {
-    final p = await SharedPreferences.getInstance();
+    try {
+      final p = await SharedPreferences.getInstance();
 
-    final themeId = p.getString('theme') ?? 'default';
-    theme = kThemes.firstWhere((t) => t.id == themeId, orElse: () => kThemes.first);
+      final themeId = p.getString('theme') ?? 'default';
+      theme = kThemes.firstWhere((t) => t.id == themeId, orElse: () => kThemes.first);
 
-    startupBase = p.getString('startupBase') ?? 'AED';
-    startupBaseValue = p.getDouble('startupBaseValue') ?? 0;
+      startupBase = p.getString('startupBase') ?? 'AED';
+      startupBaseValue = p.getDouble('startupBaseValue') ?? 0;
 
-    customTitle = p.getString('customTitle') ?? customTitle;
-    customQuestion = p.getString('customQuestion') ?? customQuestion;
-    devName = p.getString('devName') ?? devName;
-    devPhone = p.getString('devPhone') ?? devPhone;
+      customTitle = p.getString('customTitle') ?? customTitle;
+      customQuestion = p.getString('customQuestion') ?? customQuestion;
+      devName = p.getString('devName') ?? devName;
+      devPhone = p.getString('devPhone') ?? devPhone;
 
-    final act = p.getString('activeInRatios');
-    if (act != null) {
-      final m = jsonDecode(act) as Map<String, dynamic>;
-      m.forEach((k, v) { if (v is bool) activeInRatios[k] = v; });
+      final act = p.getString('activeInRatios');
+      if (act != null) {
+        try {
+          final m = jsonDecode(act) as Map<String, dynamic>;
+          m.forEach((k, v) { if (v is bool) activeInRatios[k] = v; });
+        } catch (_) {}
+      }
+
+      final ratesStr = p.getString('ratesToSDG');
+      if (ratesStr != null) {
+        try {
+          final m = jsonDecode(ratesStr) as Map<String, dynamic>;
+          m.forEach((k, v) {
+            if (v is num && rates.ratesToSDG.containsKey(k)) {
+              rates.ratesToSDG[k] = v.toDouble();
+            }
+          });
+        } catch (_) {}
+      }
+
+      final hp = p.getStringList('hiddenPages');
+      if (hp != null) hiddenPages = hp;
+
+      final lg = p.getString('logs');
+      if (lg != null) {
+        try { logs = List<Map<String, dynamic>>.from(jsonDecode(lg)); }
+        catch (_) { logs = []; }
+      }
+
+      final sf = p.getString('savedFactors');
+      if (sf != null) {
+        try {
+          final m = jsonDecode(sf) as Map<String, dynamic>;
+          savedFactors = m.map((k, v) => MapEntry(k, (v as num).toDouble()));
+        } catch (_) {}
+      }
+
+      final df = p.getString('defFactor');
+      if (df != null) {
+        try {
+          final m = jsonDecode(df) as Map<String, dynamic>;
+          defFactorFrom = m['from'] ?? 'AED';
+          defFactorTo = m['to'] ?? 'SAR';
+          defFactorAmount = (m['amount'] as num?)?.toDouble() ?? 0;
+          defRefFactor = (m['refFactor'] as num?)?.toDouble() ?? 1.00;
+          defLossLimit = (m['lossLimit'] as num?)?.toDouble() ?? 0.01;
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint("Error loading data: $e");
+    } finally {
+      notifyListeners();
     }
-
-    final ratesStr = p.getString('ratesToSDG');
-    if (ratesStr != null) {
-      final m = jsonDecode(ratesStr) as Map<String, dynamic>;
-      m.forEach((k, v) {
-        if (v is num && rates.ratesToSDG.containsKey(k)) {
-          rates.ratesToSDG[k] = v.toDouble();
-        }
-      });
-    }
-
-    final hp = p.getStringList('hiddenPages');
-    if (hp != null) hiddenPages = hp;
-
-    final lg = p.getString('logs');
-    if (lg != null) {
-      try { logs = List<Map<String, dynamic>>.from(jsonDecode(lg)); }
-      catch (_) { logs = []; }
-    }
-
-    final sf = p.getString('savedFactors');
-    if (sf != null) {
-      try {
-        final m = jsonDecode(sf) as Map<String, dynamic>;
-        savedFactors = m.map((k, v) => MapEntry(k, (v as num).toDouble()));
-      } catch (_) {}
-    }
-
-    final df = p.getString('defFactor');
-    if (df != null) {
-      try {
-        final m = jsonDecode(df) as Map<String, dynamic>;
-        defFactorFrom = m['from'] ?? 'AED';
-        defFactorTo = m['to'] ?? 'SDG';
-        defFactorAmount = (m['amount'] as num?)?.toDouble() ?? 1000;
-        defRefFactor = (m['refFactor'] as num?)?.toDouble() ?? 1.00;
-        defLossLimit = (m['lossLimit'] as num?)?.toDouble() ?? 0.01;
-      } catch (_) {}
-    }
-
-    notifyListeners();
   }
 
   Future<void> setTheme(String id) async {
