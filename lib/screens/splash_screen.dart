@@ -17,8 +17,14 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _boot() async {
-    await context.read<AppState>().loadAll();
-    await Future.delayed(const Duration(milliseconds: 1500));
+    try {
+      await context.read<AppState>().loadAll().timeout(const Duration(seconds: 3));
+    } catch (e) {
+      debugPrint("خطأ في التحميل: $e");
+    }
+    
+    await Future.delayed(const Duration(milliseconds: 2000)); // زيادة وقت عرض الشاشة قليلاً لرؤية الصورة
+    
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
@@ -41,22 +47,27 @@ class _SplashScreenState extends State<SplashScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // عرض الصورة التي رفعتها بدلاً من حرفي MC
               Container(
-                width: 130, height: 130,
+                width: 150, 
+                height: 150,
                 decoration: BoxDecoration(
-                  color: t.cream,
                   borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: t.gold, width: 6),
                   boxShadow: const [
                     BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, 8)),
                   ],
                 ),
-                child: Center(
-                  child: Text('MC', style: TextStyle(color: t.primaryDark, fontSize: 42, fontWeight: FontWeight.bold)),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: Image.asset(
+                    'app_icon.png',
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
-              const SizedBox(height: 20),
-              Text('Mulla Calc', style: TextStyle(color: t.cream, fontSize: 26, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 24),
+              // النصوص التوضيحية
+              Text('Mulla Calc', style: TextStyle(color: t.cream, fontSize: 28, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Text('الآلة الحاسبة المالية', style: TextStyle(color: t.gold, fontSize: 16, fontWeight: FontWeight.bold)),
             ],
