@@ -12,8 +12,10 @@ class ReportsScreen extends StatelessWidget {
 
   Future<void> _generatePdf(BuildContext ctx, String type) async {
     final app = ctx.read<AppState>();
-    final font = await PdfGoogleFonts.amiriRegular();
-    final fontBold = await PdfGoogleFonts.amiriBold();
+    
+    // استخدام خط Cairo لضمان ظهور العربية بشكل صحيح
+    final font = await PdfGoogleFonts.cairoRegular();
+    final fontBold = await PdfGoogleFonts.cairoBold();
 
     final doc = pw.Document();
     final now = DateTime.now();
@@ -29,7 +31,7 @@ class ReportsScreen extends StatelessWidget {
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        textDirection: pw.TextDirection.rtl,
+        textDirection: pw.TextDirection.rtl, // إجبار الاتجاه للعربية
         theme: pw.ThemeData.withFont(base: font, bold: fontBold),
         build: (ctxPdf) => [
           pw.Container(
@@ -38,19 +40,19 @@ class ReportsScreen extends StatelessWidget {
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
-                pw.Text('بسم الله الرحمن الرحيم', style: const pw.TextStyle(fontSize: 14, color: PdfColors.green900)),
+                pw.Text('بسم الله الرحمن الرحيم', style: pw.TextStyle(font: fontBold, fontSize: 14, color: PdfColors.green900)),
                 pw.SizedBox(height: 6),
-                pw.Text(titles[type] ?? 'تقرير', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: PdfColors.green900)),
+                pw.Text(titles[type] ?? 'تقرير', style: pw.TextStyle(font: fontBold, fontSize: 20, color: PdfColors.green900)),
                 pw.SizedBox(height: 4),
-                pw.Text('التاريخ: $dateStr', style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
+                pw.Text('التاريخ: $dateStr', style: pw.TextStyle(font: font, fontSize: 11, color: PdfColors.grey700)),
               ],
             ),
           ),
           pw.SizedBox(height: 12),
-          ..._buildContent(app, type),
+          ..._buildContent(app, type, font, fontBold),
           pw.SizedBox(height: 20),
           pw.Divider(color: PdfColors.grey400),
-          pw.Center(child: pw.Text('تصميم وتطوير ${app.devName} - هاتف: ${app.devPhone}', style: pw.TextStyle(fontSize: 10, color: PdfColors.green900, fontWeight: pw.FontWeight.bold))),
+          pw.Center(child: pw.Text('تصميم وتطوير ${app.devName} - هاتف: ${app.devPhone}', style: pw.TextStyle(font: fontBold, fontSize: 10, color: PdfColors.green900))),
         ],
       ),
     );
@@ -58,7 +60,7 @@ class ReportsScreen extends StatelessWidget {
     await Printing.layoutPdf(onLayout: (format) async => doc.save());
   }
 
-  List<pw.Widget> _buildContent(AppState app, String type) {
+  List<pw.Widget> _buildContent(AppState app, String type, pw.Font font, pw.Font fontBold) {
     if (type == 'basket') {
       final rows = <List<String>>[];
       int idx = 0;
@@ -71,28 +73,65 @@ class ReportsScreen extends StatelessWidget {
         final conv = targetRate != 0 ? (num * rate) / targetRate : 0;
         rows.add(['$idx', '${kCurrencyLabels[code]} ($code)', formatNum(num), '${formatNum(conv)} ${app.basketTarget}']);
       });
-      if (rows.isEmpty) return [pw.Center(child: pw.Text('السلة فارغة', style: const pw.TextStyle(fontSize: 12)))];
+      if (rows.isEmpty) return [pw.Center(child: pw.Text('السلة فارغة', style: pw.TextStyle(font: fontBold, fontSize: 12)))];
       final total = app.basketTotalConverted();
       return [
-        pw.TableHelper.fromTextArray(headers: ['م', 'العملة', 'المبلغ', 'المقابل'], data: rows, headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white), headerDecoration: const pw.BoxDecoration(color: PdfColors.green900), cellStyle: const pw.TextStyle(fontSize: 10), cellAlignment: pw.Alignment.center),
+        pw.TableHelper.fromTextArray(
+          headers: ['م', 'العملة', 'المبلغ', 'المقابل'], 
+          data: rows, 
+          headerStyle: pw.TextStyle(font: fontBold, color: PdfColors.white), 
+          headerDecoration: const pw.BoxDecoration(color: PdfColors.green900), 
+          cellStyle: pw.TextStyle(font: font, fontSize: 10), 
+          cellAlignment: pw.Alignment.center
+        ),
         pw.SizedBox(height: 10),
-        pw.Container(padding: const pw.EdgeInsets.all(8), decoration: pw.BoxDecoration(color: PdfColors.grey300, border: pw.Border.all(color: PdfColors.green900, width: 2)), child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('الإجمالي:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13)), pw.Text('${formatNum(total)} ${app.basketTarget}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13))])),
+        pw.Container(
+          padding: const pw.EdgeInsets.all(8), 
+          decoration: pw.BoxDecoration(color: PdfColors.grey300, border: pw.Border.all(color: PdfColors.green900, width: 2)), 
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, 
+            children: [
+              pw.Text('الإجمالي:', style: pw.TextStyle(font: fontBold, fontSize: 13)), 
+              pw.Text('${formatNum(total)} ${app.basketTarget}', style: pw.TextStyle(font: fontBold, fontSize: 13))
+            ]
+          )
+        ),
       ];
     } else if (type == 'factor') {
       final amt = double.tryParse(app.factorAmount) ?? 0;
       final f = double.tryParse(app.factorRate) ?? 0;
       final result = amt * f;
       return [
-        pw.TableHelper.fromTextArray(headers: ['البيان', 'القيمة'], data: [['من عملة', '${kCurrencyLabels[app.factorFrom]} (${app.factorFrom})'], ['إلى عملة', '${kCurrencyLabels[app.factorTo]} (${app.factorTo})'], ['المبلغ', formatNum(amt)], ['المعامل', f.toString()], ['النتيجة', '${formatNum(result)} ${app.factorTo}']], headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white), headerDecoration: const pw.BoxDecoration(color: PdfColors.green900), cellStyle: const pw.TextStyle(fontSize: 11), cellAlignment: pw.Alignment.center),
+        pw.TableHelper.fromTextArray(
+          headers: ['البيان', 'القيمة'], 
+          data: [
+            ['من عملة', '${kCurrencyLabels[app.factorFrom]} (${app.factorFrom})'], 
+            ['إلى عملة', '${kCurrencyLabels[app.factorTo]} (${app.factorTo})'], 
+            ['المبلغ', formatNum(amt)], 
+            ['المعامل', f.toString()], 
+            ['النتيجة', '${formatNum(result)} ${app.factorTo}']
+          ], 
+          headerStyle: pw.TextStyle(font: fontBold, color: PdfColors.white), 
+          headerDecoration: const pw.BoxDecoration(color: PdfColors.green900), 
+          cellStyle: pw.TextStyle(font: font, fontSize: 11), 
+          cellAlignment: pw.Alignment.center
+        ),
       ];
     } else if (type == 'simple') {
       final items = app.logs.take(30).toList();
-      if (items.isEmpty) return [pw.Center(child: pw.Text('لا توجد عمليات مسجلة', style: const pw.TextStyle(fontSize: 12)))];
+      if (items.isEmpty) return [pw.Center(child: pw.Text('لا توجد عمليات مسجلة', style: pw.TextStyle(font: fontBold, fontSize: 12)))];
       return [
-        pw.TableHelper.fromTextArray(headers: ['م', 'العملية'], data: List.generate(items.length, (i) => ['${i + 1}', '${items[i]['text']}']), headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white), headerDecoration: const pw.BoxDecoration(color: PdfColors.green900), cellStyle: const pw.TextStyle(fontSize: 11), cellAlignment: pw.Alignment.center),
+        pw.TableHelper.fromTextArray(
+          headers: ['م', 'العملية'], 
+          data: List.generate(items.length, (i) => ['${i + 1}', '${items[i]['text']}']), 
+          headerStyle: pw.TextStyle(font: fontBold, color: PdfColors.white), 
+          headerDecoration: const pw.BoxDecoration(color: PdfColors.green900), 
+          cellStyle: pw.TextStyle(font: font, fontSize: 11), 
+          cellAlignment: pw.Alignment.center
+        ),
       ];
     }
-    return [pw.Center(child: pw.Text('لا توجد بيانات لهذا التقرير', style: const pw.TextStyle(fontSize: 12)))];
+    return [pw.Center(child: pw.Text('لا توجد بيانات لهذا التقرير', style: pw.TextStyle(font: fontBold, fontSize: 12)))];
   }
 
   @override
