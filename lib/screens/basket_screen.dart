@@ -113,6 +113,7 @@ class _BasketScreenState extends State<BasketScreen> {
         Padding(
           padding: const EdgeInsets.all(10),
           child: Container(
+            width: double.infinity,
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(color: t.bgOuter, borderRadius: BorderRadius.circular(8), border: Border.all(color: t.primaryDark, width: 2)),
             child: Row(
@@ -124,8 +125,13 @@ class _BasketScreenState extends State<BasketScreen> {
             ),
           ),
         ),
-        Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: _numpad(app)),
-        const SizedBox(height: 6),
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: SizedBox(
+            height: 280,
+            child: _numpad(app),
+          ),
+        ),
       ],
     );
   }
@@ -134,8 +140,7 @@ class _BasketScreenState extends State<BasketScreen> {
     const rows = [['7', '8', '9', 'C'], ['4', '5', '6', '×'], ['1', '2', '3', '÷'], ['0', '00', '.', '+'], ['⌫', '=', '-', '(']];
     return Column(
       children: rows.map((row) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
+        return Expanded(
           child: Row(
             children: row.map((ch) {
               VoidCallback action;
@@ -152,14 +157,11 @@ class _BasketScreenState extends State<BasketScreen> {
               }
               return Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: SizedBox(
-                    height: 44,
-                    child: ElevatedButton(
-                      onPressed: action,
-                      style: ElevatedButton.styleFrom(backgroundColor: ['=', '+'].contains(ch) ? app.theme.gold : app.theme.cream, padding: EdgeInsets.zero, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                      child: Text(ch, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: app.theme.textDark)),
-                    ),
+                  padding: const EdgeInsets.all(3.0),
+                  child: ElevatedButton(
+                    onPressed: action,
+                    style: ElevatedButton.styleFrom(backgroundColor: ['=', '+'].contains(ch) ? app.theme.gold : app.theme.cream, padding: EdgeInsets.zero, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                    child: Text(ch, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: app.theme.textDark)),
                   ),
                 ),
               );
