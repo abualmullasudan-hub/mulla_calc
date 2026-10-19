@@ -13,8 +13,8 @@ class CurrencyScreen extends StatefulWidget {
 
 class _CurrencyScreenState extends State<CurrencyScreen> {
   String _from = 'AED';
-  String _to = 'SAR'; // تم التغيير إلى ريال سعودي
-  String _amount = '0'; // تم التغيير إلى صفر
+  String _to = 'SAR';
+  String _amount = '0';
 
   void _append(String ch) {
     setState(() {
@@ -77,54 +77,70 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
     final t = app.theme;
     final result = app.rates.convert(_numAmount(), _from, _to);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(10),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(color: t.primaryDarker, borderRadius: BorderRadius.circular(8), border: Border.all(color: t.gold.withOpacity(0.6))),
-            child: Text(
-              app.activeCurrencies.where((c) => c != 'SDG').map((c) => '${kCurrencyFlags[c] ?? ''} $c: ${(app.rates.marketUSD[c] ?? 0).toStringAsFixed(2)}').join('  |  '),
-              style: TextStyle(color: t.cream, fontSize: 11, fontWeight: FontWeight.bold),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+    return Column(
+      children: [
+        // الجزء العلوي (قابل للتمرير إذا صغرت الشاشة)
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(color: t.primaryDarker, borderRadius: BorderRadius.circular(8), border: Border.all(color: t.gold.withOpacity(0.6))),
+                  child: Text(
+                    app.activeCurrencies.where((c) => c != 'SDG').map((c) => '${kCurrencyFlags[c] ?? ''} $c: ${(app.rates.marketUSD[c] ?? 0).toStringAsFixed(2)}').join('  |  '),
+                    style: TextStyle(color: t.cream, fontSize: 11, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Row(
+                  children: [
+                    Expanded(child: _pickerBox('من:', '${kCurrencyFlags[_from] ?? ''} $_from', () => _pickCurrency(true), t)),
+                    const SizedBox(width: 6),
+                    Expanded(child: _pickerBox('إلى:', '${kCurrencyFlags[_to] ?? ''} $_to', () => _pickCurrency(false), t)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: t.cream, borderRadius: BorderRadius.circular(8), border: Border.all(color: t.gold, width: 2)),
+                  child: Column(children: [
+                    Text('الكمية', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: t.textDark)),
+                    const SizedBox(height: 4),
+                    Text(_amount, textDirection: TextDirection.ltr, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: t.textDark)),
+                  ]),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: t.bgOuter, borderRadius: BorderRadius.circular(8), border: Border.all(color: t.primaryDark, width: 2)),
+                  child: Column(children: [
+                    Text('المقابل', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: t.textDark)),
+                    const SizedBox(height: 4),
+                    Text('${formatNum(result)} ${kCurrencyFlags[_to] ?? ''} $_to', textDirection: TextDirection.ltr, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: t.textDark)),
+                    const SizedBox(height: 4),
+                    Text(numberToWords(result, _to), style: TextStyle(fontSize: 12, color: t.textDark.withOpacity(0.8))),
+                  ]),
+                ),
+              ],
             ),
           ),
-          Row(
-            children: [
-              Expanded(child: _pickerBox('من:', '${kCurrencyFlags[_from] ?? ''} $_from', () => _pickCurrency(true), t)),
-              const SizedBox(width: 6),
-              Expanded(child: _pickerBox('إلى:', '${kCurrencyFlags[_to] ?? ''} $_to', () => _pickCurrency(false), t)),
-            ],
+        ),
+        // لوحة الأرقام ثابتة في الأسفل وتأخذ المساحة المتبقية
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: SizedBox(
+            height: 280, // ارتفاع ثابت للوحة الأرقام
+            child: _buildNumpad(t, app),
           ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: t.cream, borderRadius: BorderRadius.circular(8), border: Border.all(color: t.gold, width: 2)),
-            child: Column(children: [
-              Text('الكمية', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: t.textDark)),
-              const SizedBox(height: 4),
-              Text(_amount, textDirection: TextDirection.ltr, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: t.textDark)),
-            ]),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: t.bgOuter, borderRadius: BorderRadius.circular(8), border: Border.all(color: t.primaryDark, width: 2)),
-            child: Column(children: [
-              Text('المقابل', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: t.textDark)),
-              const SizedBox(height: 4),
-              Text('${formatNum(result)} ${kCurrencyFlags[_to] ?? ''} $_to', textDirection: TextDirection.ltr, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: t.textDark)),
-              const SizedBox(height: 4),
-              Text(numberToWords(result, _to), style: TextStyle(fontSize: 12, color: t.textDark.withOpacity(0.8))),
-            ]),
-          ),
-          const SizedBox(height: 10),
-          _buildNumpad(t, app),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -150,8 +166,7 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
     final rows = [['7', '8', '9', 'C'], ['4', '5', '6', '×'], ['1', '2', '3', '÷'], ['0', '00', '.', '+'], ['⌫', '=', '-', '(']];
     return Column(
       children: rows.map((row) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
+        return Expanded(
           child: Row(
             children: row.map((ch) {
               CalcBtnType type = CalcBtnType.normal;
@@ -161,7 +176,12 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
               else if (ch == '=') { type = CalcBtnType.equal; action = () => app.addLog('$_amount $_from = ${formatNum(app.rates.convert(_numAmount(), _from, _to))} $_to'); }
               else if (ch == '⌫') { type = CalcBtnType.delete; action = () => _append('⌫'); }
               else { action = () => _append(ch); }
-              return Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 3), child: SizedBox(height: 48, child: CalcButton(label: ch, onTap: action, type: type))));
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(3.0),
+                  child: CalcButton(label: ch, onTap: action, type: type),
+                ),
+              );
             }).toList(),
           ),
         );
